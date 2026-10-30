@@ -1,0 +1,17 @@
+# Artefactos de build (WASM + runtime JS generado por Go)
+ritmo.wasm
+main.wasm
+wasm_exec.js
+
+# Binario nativo
+ritmo-del-barro
+
+# IDE / editor
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+.DS_Store
+.idea/
+.vscode/

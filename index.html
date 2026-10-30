@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>Ritmo del Barro</title>
+  <style>
+    html,body{margin:0;padding:0;background:#0d0b16;height:100%;overflow:hidden}
+    canvas{display:block;width:100vw;height:100vh;background:#0d0b16;image-rendering:pixelated;}
+  </style>
+</head>
+<body>
+  <canvas id="canvas"></canvas>
+  <script src="wasm_exec.js"></script>
+  <script>
+    const go = new Go();
+    WebAssembly.instantiateStreaming(fetch('ritmo.wasm'), go.importObject)
+      .then((result) => { go.run(result.instance); });
+  </script>
+</body>
+</html>
