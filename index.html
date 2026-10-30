@@ -22,6 +22,7 @@
             align-items: center;
             touch-action: none;
             position: relative;
+            overflow: hidden;
         }
         #game-canvas {
             image-rendering: pixelated;
@@ -31,9 +32,29 @@
             max-width: 100%;
             max-height: 100%;
             touch-action: none;
-            /* Force hardware acceleration for smoothness */
             transform: translateZ(0);
             will-change: transform;
+            /* Ensure canvas is above everything */
+            position: relative;
+            z-index: 1;
+        }
+        /* Tap-to-start overlay covers everything */
+        #tap-overlay {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            z-index: 1000;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background: rgba(0, 0, 0, 0.8);
+            cursor: pointer;
+        }
+        #tap-overlay .text {
+            color: #e8a15c;
+            font-size: 28px;
+            text-align: center;
+            text-shadow: 3px 3px 0 #16102a;
+            pointer-events: none;
         }
         #hud {
             position: fixed;
@@ -54,7 +75,7 @@
             color: #e8a15c;
             font-size: 20px;
             text-align: center;
-            z-index: 100;
+            z-index: 999;
             background: rgba(20, 18, 28, 0.9);
             padding: 30px 50px;
             border-radius: 12px;
@@ -68,19 +89,18 @@
             color: #ff5da2;
             font-size: 18px;
             text-align: center;
-            z-index: 100;
+            z-index: 1000;
             background: rgba(20, 18, 28, 0.95);
             padding: 20px 40px;
             border-radius: 8px;
             border: 2px solid #ff5da2;
         }
-        /* Touch controls - designed for iPad */
         .touch-btn {
             position: absolute;
             background: rgba(233, 161, 92, 0.15);
             border: 2px solid rgba(233, 161, 92, 0.4);
             border-radius: 50%;
-            z-index: 9;
+            z-index: 2;
             pointer-events: auto;
             touch-action: manipulation;
             display: flex;
@@ -95,38 +115,34 @@
             color: #e8a15c;
             box-shadow: 0 0 12px rgba(233, 161, 92, 0.6);
         }
-        .btn-label {
-            position: absolute;
-            pointer-events: none;
-            font-size: 10px;
-            opacity: 0.5;
-        }
-        /* Left cluster */
         #btn-left { bottom: 80px; left: 20px; width: 70px; height: 70px; }
         #btn-right { bottom: 80px; left: 100px; width: 70px; height: 70px; }
         #btn-down { bottom: 80px; left: 180px; width: 70px; height: 70px; }
-        /* Right cluster */
         #btn-jump { bottom: 100px; right: 80px; width: 80px; height: 80px; }
         #btn-dash { bottom: 100px; right: 180px; width: 70px; height: 70px; }
     </style>
 </head>
 <body>
     <div id="loading">Cargando Ritmo del Barro...<br><small>18.9 MB WASM</small></div>
-    <div id="game-container">
-        <canvas id="game-canvas" tabindex="0"></canvas></canvas>
 
-        <!-- Touch controls - visible on mobile/iPad -->
+    <!-- Tap to start overlay - captures first interaction -->
+    <div id="tap-overlay">
+        <div class="text">Toca para jugar</div>
+    </div>
+
+    <div id="game-container">
+        <canvas id="game-canvas" tabindex="0"></canvas>
         <div id="btn-left" class="touch-btn"></div>
         <div id="btn-right" class="touch-btn"></div>
         <div id="btn-down" class="touch-btn"></div>
         <div id="btn-jump" class="touch-btn"></div>
         <div id="btn-dash" class="touch-btn"></div>
     </div>
-    <div id="error" style="display:none;"></div>
     <div id="hud">
         <span>RITMO DEL BARRO</span>
         <span id="status">Cargando...</span>
     </div>
+    <div id="error" style="display:none;"></div>
 
     <script src="wasm_exec.js"></script>
     <script>
@@ -136,113 +152,175 @@
             const canvas = document.getElementById('game-canvas');
             const loading = document.getElementById('loading');
             const statusEl = document.getElementById('status');
+            const tapOverlay = document.getElementById('tap-overlay');
 
-            // Set canvas size (3x scale of 800x480)
             canvas.width = 2400;
             canvas.height = 1440;
 
-            // Key code mapping for Ebitengine compatibility
-            // Ebitengine uses KeyboardEvent.code (not .key) to map keys
+            // KEY CODE MAPPING — Go's wasm_exec.js uses e.keyCode (deprecated, not settable via constructor)
+            // Must set both code AND keyCode/which for compatibility
             const KEY_CODES = {
-                'ArrowLeft':  { key: 'ArrowLeft',  code: 'ArrowLeft'  },
-                'ArrowRight': { key: 'ArrowRight', code: 'ArrowRight' },
-                'ArrowUp':    { key: 'ArrowUp',    code: 'ArrowUp'    },
-                'ArrowDown':  { key: 'ArrowDown',  code: 'ArrowDown'  },
-                'a':          { key: 'a',          code: 'KeyA'       },
-                'd':          { key: 'd',          code: 'KeyD'       },
-                'w':          { key: 'w',          code: 'KeyW'       },
-                's':          { key: 's',          code: 'KeyS'       },
-                ' ':          { key: ' ',          code: 'Space',     location: 0 },
-                'Space':      { key: ' ',          code: 'Space',     location: 0 },
-                'Shift':      { key: 'Shift',      code: 'ShiftLeft'  },
+                'ArrowLeft':  { code: 'ArrowLeft',  key: 'ArrowLeft',  keyCode: 37 },
+                'ArrowRight': { code: 'ArrowRight', key: 'ArrowRight', keyCode: 39 },
+                'ArrowUp':    { code: 'ArrowUp',    key: 'ArrowUp',    keyCode: 38 },
+                'ArrowDown':  { code: 'ArrowDown',  key: 'ArrowDown',  keyCode: 40 },
+                'a':          { code: 'KeyA',       key: 'a',          keyCode: 65 },
+                'd':          { code: 'KeyD',       key: 'd',          keyCode: 68 },
+                'w':          { code: 'KeyW',       key: 'w',          keyCode: 87 },
+                's':          { code: 'KeyS',       key: 's',          keyCode: 83 },
+                ' ':          { code: 'Space',      key: ' ',          keyCode: 32 },
+                'Enter':      { code: 'Enter',      key: 'Enter',      keyCode: 13 },
+                'Shift':      { code: 'ShiftLeft',  key: 'Shift',      keyCode: 16 },
             };
 
-            // Focus canvas so keyboard/touch events are captured by Ebitengine
-            canvas.focus();
-            document.body.addEventListener('touchstart', function() {
-                canvas.focus();
-            }, { once: false });
-            canvas.addEventListener('touchstart', function() {
-                canvas.focus();
-            });
+            let keysHeld = {}; // Track which keys are currently held
 
-            function simulateKey(keyName, isDown) {
-                const mapping = KEY_CODES[keyName] || KEY_CODES[keyName.toLowerCase()];
-                if (!mapping) {
-                    console.warn('Unknown key:', keyName);
-                    return;
-                }
-                const event = new KeyboardEvent(isDown ? 'keydown' : 'keyup', {
+            function dispatchKeyEvent(keyName, isDown) {
+                var mapping = KEY_CODES[keyName];
+                if (!mapping) return;
+                var event = new KeyboardEvent(isDown ? 'keydown' : 'keyup', {
                     key: mapping.key,
                     code: mapping.code,
                     bubbles: true,
                     cancelable: true,
                     composed: true
                 });
-                // Dispatch to both document and canvas
-                document.dispatchEvent(event);
+                // Go wasm_exec.js reads e.keyCode — set via defineProperty
+                Object.defineProperty(event, 'keyCode',   { value: mapping.keyCode, configurable: true });
+                Object.defineProperty(event, 'which',     { value: mapping.keyCode, configurable: true });
+                Object.defineProperty(event, 'charCode',  { value: mapping.keyCode, configurable: true });
+
+                window.dispatchEvent(event);
                 canvas.dispatchEvent(event);
+                document.dispatchEvent(event);
             }
 
             function setupTouchControls() {
-                const buttons = {
+                var buttons = {
                     'btn-left':   ['ArrowLeft', 'a'],
                     'btn-right':  ['ArrowRight', 'd'],
-                    'btn-jump':   ['w', ' ', 'ArrowUp'],
+                    'btn-jump':   ['w', 'ArrowUp'],
                     'btn-dash':   ['Shift'],
                     'btn-down':   ['s', 'ArrowDown'],
                 };
 
-                Object.entries(buttons).forEach(([btnId, keys]) => {
-                    const el = document.getElementById(btnId);
+                Object.keys(buttons).forEach(function(btnId) {
+                    var keys = buttons[btnId];
+                    var el = document.getElementById(btnId);
                     if (!el) return;
 
                     el.addEventListener('touchstart', function(e) {
                         e.preventDefault();
                         e.stopPropagation();
                         el.classList.add('active');
-                        keys.forEach(k => simulateKey(k, true));
+                        keys.forEach(function(k) {
+                            if (!keysHeld[k]) {
+                                keysHeld[k] = true;
+                                dispatchKeyEvent(k, true);
+                            }
+                        });
                     }, { passive: false });
 
                     el.addEventListener('touchend', function(e) {
                         e.preventDefault();
+                        e.stopPropagation();
                         el.classList.remove('active');
-                        keys.forEach(k => simulateKey(k, false));
+                        keys.forEach(function(k) {
+                            if (keysHeld[k]) {
+                                keysHeld[k] = false;
+                                dispatchKeyEvent(k, false);
+                            }
+                        });
                     });
 
                     el.addEventListener('touchcancel', function(e) {
                         el.classList.remove('active');
-                        keys.forEach(k => simulateKey(k, false));
+                        keys.forEach(function(k) {
+                            if (keysHeld[k]) {
+                                keysHeld[k] = false;
+                                dispatchKeyEvent(k, false);
+                            }
+                        });
                     });
 
-                    // Also handle mouse for testing on desktop
+                    // Mouse fallback for desktop testing
                     el.addEventListener('mousedown', function(e) {
                         e.preventDefault();
                         el.classList.add('active');
-                        keys.forEach(k => simulateKey(k, true));
+                        keys.forEach(function(k) {
+                            if (!keysHeld[k]) {
+                                keysHeld[k] = true;
+                                dispatchKeyEvent(k, true);
+                            }
+                        });
                     });
-
                     el.addEventListener('mouseup', function(e) {
                         el.classList.remove('active');
-                        keys.forEach(k => simulateKey(k, false));
+                        keys.forEach(function(k) {
+                            if (keysHeld[k]) {
+                                keysHeld[k] = false;
+                                dispatchKeyEvent(k, false);
+                            }
+                        });
                     });
-
                     el.addEventListener('mouseleave', function(e) {
                         el.classList.remove('active');
-                        keys.forEach(k => simulateKey(k, false));
+                        keys.forEach(function(k) {
+                            if (keysHeld[k]) {
+                                keysHeld[k] = false;
+                                dispatchKeyEvent(k, false);
+                            }
+                        });
                     });
                 });
             }
 
-            // Also listen for physical keyboard on iPad (Bluetooth keyboard)
-            function setupKeyboardFallback() {
-                document.addEventListener('keydown', function(e) {
-                    // Allow browser space bar to work
-                    if (e.code === 'Space') {
-                        e.preventDefault();
-                    }
-                }, true);
+            // Handle the "tap to start" overlay
+            var startDone = false;
+            function removeTapOverlay() {
+                if (startDone) return;
+                startDone = true;
+
+                // Dispatch Space keydown on window, document, AND canvas
+                // Go's wasm_exec.js listens on canvas for keyboard events
+                dispatchKeyEvent(' ', true);
+
+                // Also dispatch a mousedown as fallback
+                var mouseEvent = new MouseEvent('mousedown', {
+                    bubbles: true,
+                    cancelable: true,
+                    view: window,
+                    clientX: 400,
+                    clientY: 300,
+                    button: 0,
+                    buttons: 1
+                });
+                canvas.dispatchEvent(mouseEvent);
+                document.dispatchEvent(mouseEvent);
+
+                // Dispatch keydown via direct window event as another fallback
+                var keyboardEvent = new KeyboardEvent('keydown', {
+                    key: ' ',
+                    code: 'Space',
+                    bubbles: true,
+                    cancelable: true,
+                    composed: true
+                });
+                Object.defineProperty(keyboardEvent, 'keyCode', { value: 32, configurable: true });
+                Object.defineProperty(keyboardEvent, 'which', { value: 32, configurable: true });
+                window.dispatchEvent(keyboardEvent);
+
+                setTimeout(function() {
+                    dispatchKeyEvent(' ', false);
+                }, 100);
+
+                tapOverlay.style.display = 'none';
+                statusEl.textContent = '¡Jugando!';
+                canvas.focus();
             }
+
+            tapOverlay.addEventListener('touchstart', removeTapOverlay, { once: true, passive: false });
+            tapOverlay.addEventListener('mousedown', removeTapOverlay, { once: true });
 
             // Initialize game
             (async function() {
@@ -256,13 +334,14 @@
 
                     loading.style.display = 'none';
                     statusEl.textContent = '¡Listo! Toca para jugar';
+                    tapOverlay.style.display = 'flex';
 
                     setupTouchControls();
-                    setupKeyboardFallback();
 
                     go.run(result.instance);
                 } catch (err) {
                     loading.style.display = 'none';
+                    tapOverlay.style.display = 'none';
                     statusEl.textContent = 'Error!';
                     document.getElementById('error').textContent = 'Error: ' + err;
                     document.getElementById('error').style.display = 'block';
