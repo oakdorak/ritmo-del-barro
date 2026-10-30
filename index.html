@@ -21,6 +21,7 @@
             justify-content: center;
             align-items: center;
             touch-action: none;
+            position: relative;
         }
         #game-canvas {
             image-rendering: pixelated;
@@ -30,6 +31,9 @@
             max-width: 100%;
             max-height: 100%;
             touch-action: none;
+            /* Force hardware acceleration for smoothness */
+            transform: translateZ(0);
+            will-change: transform;
         }
         #hud {
             position: fixed;
@@ -51,6 +55,10 @@
             font-size: 20px;
             text-align: center;
             z-index: 100;
+            background: rgba(20, 18, 28, 0.9);
+            padding: 30px 50px;
+            border-radius: 12px;
+            border: 2px solid #4e5eb4;
         }
         #error {
             position: fixed;
@@ -61,24 +69,58 @@
             font-size: 18px;
             text-align: center;
             z-index: 100;
-            background: rgba(20, 18, 28, 0.9);
+            background: rgba(20, 18, 28, 0.95);
             padding: 20px 40px;
             border-radius: 8px;
             border: 2px solid #ff5da2;
         }
+        /* Touch controls - designed for iPad */
         .touch-btn {
             position: absolute;
-            border: 2px solid rgba(233,161,92,0.3);
-            border-radius: 8px;
+            background: rgba(233, 161, 92, 0.15);
+            border: 2px solid rgba(233, 161, 92, 0.4);
+            border-radius: 50%;
             z-index: 9;
             pointer-events: auto;
+            touch-action: manipulation;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 12px;
+            color: rgba(233, 161, 92, 0.3);
         }
+        .touch-btn.active {
+            background: rgba(233, 161, 92, 0.4);
+            border-color: #e8a15c;
+            color: #e8a15c;
+            box-shadow: 0 0 12px rgba(233, 161, 92, 0.6);
+        }
+        .btn-label {
+            position: absolute;
+            pointer-events: none;
+            font-size: 10px;
+            opacity: 0.5;
+        }
+        /* Left cluster */
+        #btn-left { bottom: 80px; left: 20px; width: 70px; height: 70px; }
+        #btn-right { bottom: 80px; left: 100px; width: 70px; height: 70px; }
+        #btn-down { bottom: 80px; left: 180px; width: 70px; height: 70px; }
+        /* Right cluster */
+        #btn-jump { bottom: 100px; right: 80px; width: 80px; height: 80px; }
+        #btn-dash { bottom: 100px; right: 180px; width: 70px; height: 70px; }
     </style>
 </head>
 <body>
-    <div id="loading">Cargando Ritmo del Barro...</div>
+    <div id="loading">Cargando Ritmo del Barro...<br><small>18.9 MB WASM</small></div>
     <div id="game-container">
         <canvas id="game-canvas"></canvas>
+
+        <!-- Touch controls - visible on mobile/iPad -->
+        <div id="btn-left" class="touch-btn"></div>
+        <div id="btn-right" class="touch-btn"></div>
+        <div id="btn-down" class="touch-btn"></div>
+        <div id="btn-jump" class="touch-btn"></div>
+        <div id="btn-dash" class="touch-btn"></div>
     </div>
     <div id="hud">
         <span>RITMO DEL BARRO</span>
@@ -87,69 +129,140 @@
 
     <script src="wasm_exec.js"></script>
     <script>
-        (async function() {
+        (function() {
+            'use strict';
+
             const canvas = document.getElementById('game-canvas');
             const loading = document.getElementById('loading');
             const statusEl = document.getElementById('status');
 
-            canvas.width = 2400;  // 800 * 3 (SCALE)
-            canvas.height = 1440; // 480 * 3
+            // Set canvas size (3x scale of 800x480)
+            canvas.width = 2400;
+            canvas.height = 1440;
+
+            // Key code mapping for Ebitengine compatibility
+            // Ebitengine uses KeyboardEvent.code (not .key) to map keys
+            const KEY_CODES = {
+                'ArrowLeft':  { key: 'ArrowLeft',  code: 'ArrowLeft'  },
+                'ArrowRight': { key: 'ArrowRight', code: 'ArrowRight' },
+                'ArrowUp':    { key: 'ArrowUp',    code: 'ArrowUp'    },
+                'ArrowDown':  { key: 'ArrowDown',  code: 'ArrowDown'  },
+                'a':          { key: 'a',          code: 'KeyA'       },
+                'd':          { key: 'd',          code: 'KeyD'       },
+                'w':          { key: 'w',          code: 'KeyW'       },
+                's':          { key: 's',          code: 'KeyS'       },
+                ' ':          { key: ' ',          code: 'Space'      },
+                'Shift':      { key: 'Shift',      code: 'ShiftLeft'  },
+            };
+
+            function simulateKey(keyName, isDown) {
+                const mapping = KEY_CODES[keyName] || KEY_CODES[keyName.toLowerCase()];
+                if (!mapping) {
+                    console.warn('Unknown key:', keyName);
+                    return;
+                }
+                const event = new KeyboardEvent(isDown ? 'keydown' : 'keyup', {
+                    key: mapping.key,
+                    code: mapping.code,
+                    bubbles: true,
+                    cancelable: true,
+                    composed: true
+                });
+                // Dispatch to both document and canvas
+                document.dispatchEvent(event);
+                canvas.dispatchEvent(event);
+            }
 
             function setupTouchControls() {
-                const container = document.getElementById('game-container');
                 const buttons = {
-                    left:   { x: 0,   y: 0,  w: 100, h: 100, keys: ['ArrowLeft', 'a'] },
-                    right:  { x: 110, y: 0,  w: 100, h: 100, keys: ['ArrowRight', 'd'] },
-                    jump:   { x: 230, y: 0,  w: 100, h: 100, keys: ['w', ' ', 'W', 'Space'] },
-                    dash:   { x: 350, y: 0,  w: 100, h: 100, keys: ['Shift'] },
-                    down:   { x: 120, y: 110, w: 100, h: 100, keys: ['s', 'ArrowDown'] },
+                    'btn-left':   ['ArrowLeft', 'a'],
+                    'btn-right':  ['ArrowRight', 'd'],
+                    'btn-jump':   ['w', ' ', 'ArrowUp'],
+                    'btn-dash':   ['Shift'],
+                    'btn-down':   ['s', 'ArrowDown'],
                 };
 
-                Object.entries(buttons).forEach(([name, btn]) => {
-                    const el = document.createElement('div');
-                    el.className = 'touch-btn';
-                    el.style.left = btn.x + 'px';
-                    el.style.bottom = btn.y + 'px';
-                    el.style.width = btn.w + 'px';
-                    el.style.height = btn.h + 'px';
+                Object.entries(buttons).forEach(([btnId, keys]) => {
+                    const el = document.getElementById(btnId);
+                    if (!el) return;
 
-                    el.addEventListener('touchstart', (e) => {
+                    el.addEventListener('touchstart', function(e) {
                         e.preventDefault();
-                        btn.keys.forEach(k => simulateKey(k, true));
+                        e.stopPropagation();
+                        el.classList.add('active');
+                        keys.forEach(k => simulateKey(k, true));
                     }, { passive: false });
 
-                    el.addEventListener('touchend', () => {
-                        btn.keys.forEach(k => simulateKey(k, false));
-                    });
-                    el.addEventListener('touchcancel', () => {
-                        btn.keys.forEach(k => simulateKey(k, false));
+                    el.addEventListener('touchend', function(e) {
+                        e.preventDefault();
+                        el.classList.remove('active');
+                        keys.forEach(k => simulateKey(k, false));
                     });
 
-                    container.appendChild(el);
+                    el.addEventListener('touchcancel', function(e) {
+                        el.classList.remove('active');
+                        keys.forEach(k => simulateKey(k, false));
+                    });
+
+                    // Also handle mouse for testing on desktop
+                    el.addEventListener('mousedown', function(e) {
+                        e.preventDefault();
+                        el.classList.add('active');
+                        keys.forEach(k => simulateKey(k, true));
+                    });
+
+                    el.addEventListener('mouseup', function(e) {
+                        el.classList.remove('active');
+                        keys.forEach(k => simulateKey(k, false));
+                    });
+
+                    el.addEventListener('mouseleave', function(e) {
+                        el.classList.remove('active');
+                        keys.forEach(k => simulateKey(k, false));
+                    });
                 });
             }
 
-            function simulateKey(key, isDown) {
-                const event = new KeyboardEvent(isDown ? 'keydown' : 'keyup', {
-                    key: key, code: key, bubbles: true
-                });
-                document.dispatchEvent(event);
+            // Also listen for physical keyboard on iPad (Bluetooth keyboard)
+            function setupKeyboardFallback() {
+                document.addEventListener('keydown', function(e) {
+                    // Allow browser space bar to work
+                    if (e.code === 'Space') {
+                        e.preventDefault();
+                    }
+                }, true);
             }
 
-            const go = new Go();
-            const resp = await fetch('ritmo.wasm');
-            const bytes = await resp.arrayBuffer();
-            const result = await WebAssembly.instantiate(bytes, go.importObject);
+            // Ensure canvas has focus for keyboard events
+            canvas.tabIndex = -1;
+            canvas.focus();
 
-            loading.style.display = 'none';
-            statusEl.textContent = 'Jugando...';
-            setupTouchControls();
-            go.run(result.instance);
-        })().catch(function(err) {
-            document.getElementById('error').textContent = 'Error: ' + err;
-            document.getElementById('error').style.display = 'block';
-            document.getElementById('loading').style.display = 'none';
-        });
+            // Initialize game
+            (async function() {
+                try {
+                    const go = new Go();
+                    go.argv = {};
+
+                    const resp = await fetch('ritmo.wasm');
+                    const bytes = await resp.arrayBuffer();
+                    const result = await WebAssembly.instantiate(bytes, go.importObject);
+
+                    loading.style.display = 'none';
+                    statusEl.textContent = '¡Listo! Toca para jugar';
+
+                    setupTouchControls();
+                    setupKeyboardFallback();
+
+                    go.run(result.instance);
+                } catch (err) {
+                    loading.style.display = 'none';
+                    statusEl.textContent = 'Error!';
+                    document.getElementById('error').textContent = 'Error: ' + err;
+                    document.getElementById('error').style.display = 'block';
+                    console.error(err);
+                }
+            })();
+        })();
     </script>
 </body>
 </html>

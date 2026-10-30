@@ -1526,14 +1526,16 @@ func (g *Game) nextLevel() {
 }
 
 func (g *Game) trackKeys() {
-	jumpKeys := []ebiten.Key{ebiten.KeySpace, ebiten.KeyW, ebiten.KeyArrowUp}
-	for _, k := range jumpKeys {
+	// Track ALL keys used by the player — not just jump keys!
+	allKeys := []ebiten.Key{
+		ebiten.KeySpace, ebiten.KeyW, ebiten.KeyArrowUp, ebiten.KeyArrowDown,
+		ebiten.KeyArrowLeft, ebiten.KeyArrowRight,
+		ebiten.KeyA, ebiten.KeyD, ebiten.KeyS,
+		ebiten.KeyShift,
+	}
+	for _, k := range allKeys {
 		pressed := ebiten.IsKeyPressed(k)
-		if pressed && !g.keys[k] {
-			g.keys[k] = true
-		} else if !pressed {
-			g.keys[k] = false
-		}
+		g.keys[k] = pressed
 	}
 }
 
