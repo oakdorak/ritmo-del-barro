@@ -1,16 +1,15 @@
 #!/bin/bash
-# XOLO Game Launcher — Ebitengine v2.9.9
-# Run this on Beta's physical display
-
+# Ritmo del Barro — Game Launcher (Ebitengine v2.9.9)
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 cd "$SCRIPT_DIR"
 
-# Allow root to connect to X11
-xhost +si:localuser:root 2>/dev/null
-xhost +si:localuser:oscar 2>/dev/null
+export DISPLAY=:0
+export SDL_VIDEODRIVER=x11
 
-sudo -u oscar nix-shell -p gcc xorg.libX11 xorg.libXcursor xorg.libXrandr xorg.libXi xorg.libXinerama xorg.libXxf86vm mesa mesa.drivers libGL libGLU --run "
-    export SDL_VIDEODRIVER=x11
+# Run with nix-shell for proper library paths
+nix-shell --run "
+    export CGO_ENABLED=1
     export DISPLAY=:0
+    export SDL_VIDEODRIVER=x11
     ./ritmo-del-barro
 "
