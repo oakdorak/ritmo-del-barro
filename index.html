@@ -113,7 +113,7 @@
 <body>
     <div id="loading">Cargando Ritmo del Barro...<br><small>18.9 MB WASM</small></div>
     <div id="game-container">
-        <canvas id="game-canvas"></canvas>
+        <canvas id="game-canvas" tabindex="0"></canvas></canvas>
 
         <!-- Touch controls - visible on mobile/iPad -->
         <div id="btn-left" class="touch-btn"></div>
@@ -122,6 +122,7 @@
         <div id="btn-jump" class="touch-btn"></div>
         <div id="btn-dash" class="touch-btn"></div>
     </div>
+    <div id="error" style="display:none;"></div>
     <div id="hud">
         <span>RITMO DEL BARRO</span>
         <span id="status">Cargando...</span>
@@ -151,9 +152,19 @@
                 'd':          { key: 'd',          code: 'KeyD'       },
                 'w':          { key: 'w',          code: 'KeyW'       },
                 's':          { key: 's',          code: 'KeyS'       },
-                ' ':          { key: ' ',          code: 'Space'      },
+                ' ':          { key: ' ',          code: 'Space',     location: 0 },
+                'Space':      { key: ' ',          code: 'Space',     location: 0 },
                 'Shift':      { key: 'Shift',      code: 'ShiftLeft'  },
             };
+
+            // Focus canvas so keyboard/touch events are captured by Ebitengine
+            canvas.focus();
+            document.body.addEventListener('touchstart', function() {
+                canvas.focus();
+            }, { once: false });
+            canvas.addEventListener('touchstart', function() {
+                canvas.focus();
+            });
 
             function simulateKey(keyName, isDown) {
                 const mapping = KEY_CODES[keyName] || KEY_CODES[keyName.toLowerCase()];
@@ -232,10 +243,6 @@
                     }
                 }, true);
             }
-
-            // Ensure canvas has focus for keyboard events
-            canvas.tabIndex = -1;
-            canvas.focus();
 
             // Initialize game
             (async function() {

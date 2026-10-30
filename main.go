@@ -1269,9 +1269,12 @@ func (g *Game) Update() error {
 		}
 	}
 
-	// Check for level start
+	// Check for level start (keyboard OR mouse/touch — for iPad browser play)
 	if !g.gameStarted {
-		if inpututil.IsKeyJustPressed(ebiten.KeySpace) || inpututil.IsKeyJustPressed(ebiten.KeyEnter) {
+		if inpututil.IsKeyJustPressed(ebiten.KeySpace) ||
+			inpututil.IsKeyJustPressed(ebiten.KeyEnter) ||
+			inpututil.IsMouseButtonJustPressed(ebiten.MouseButtonLeft) ||
+			len(ebiten.TouchIDs()) > 0 {
 			g.gameStarted = true
 			g.rhythm.Start()
 		}
