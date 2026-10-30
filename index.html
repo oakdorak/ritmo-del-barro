@@ -7,114 +7,34 @@
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         html, body {
-            width: 100%;
-            height: 100%;
-            overflow: hidden;
-            background: #0c0814;
-            touch-action: none;
-            font-family: 'Courier New', monospace;
+            width: 100%; height: 100%; overflow: hidden; background: #0c0814;
+            touch-action: none; font-family: 'Courier New', monospace;
         }
-        #game-container {
-            width: 100%;
-            height: 100%;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            touch-action: none;
-            position: relative;
-            overflow: hidden;
-        }
-        #game-canvas {
-            image-rendering: pixelated;
-            image-rendering: crisp-edges;
-            width: 100vw;
-            height: 100vh;
-            max-width: 100%;
-            max-height: 100%;
-            touch-action: none;
-            transform: translateZ(0);
-            will-change: transform;
-            /* Ensure canvas is above everything */
-            position: relative;
-            z-index: 1;
-        }
-        /* Tap-to-start overlay covers everything */
-        #tap-overlay {
-            position: fixed;
-            top: 0; left: 0; right: 0; bottom: 0;
-            z-index: 1000;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            background: rgba(0, 0, 0, 0.8);
-            cursor: pointer;
-        }
-        #tap-overlay .text {
-            color: #e8a15c;
-            font-size: 28px;
-            text-align: center;
-            text-shadow: 3px 3px 0 #16102a;
-            pointer-events: none;
-        }
-        #hud {
-            position: fixed;
-            top: 10px;
-            left: 10px;
-            color: #e8a15c;
-            font-size: 14px;
-            text-shadow: 2px 2px 0 #16102a;
-            z-index: 10;
-            pointer-events: none;
-        }
-        #hud span { display: block; }
-        #loading {
-            position: fixed;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            color: #e8a15c;
-            font-size: 20px;
-            text-align: center;
-            z-index: 999;
-            background: rgba(20, 18, 28, 0.9);
-            padding: 30px 50px;
-            border-radius: 12px;
-            border: 2px solid #4e5eb4;
-        }
-        #error {
-            position: fixed;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            color: #ff5da2;
-            font-size: 18px;
-            text-align: center;
-            z-index: 1000;
-            background: rgba(20, 18, 28, 0.95);
-            padding: 20px 40px;
-            border-radius: 8px;
-            border: 2px solid #ff5da2;
-        }
-        .touch-btn {
-            position: absolute;
-            background: rgba(233, 161, 92, 0.15);
-            border: 2px solid rgba(233, 161, 92, 0.4);
-            border-radius: 50%;
-            z-index: 2;
-            pointer-events: auto;
-            touch-action: manipulation;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            font-size: 12px;
-            color: rgba(233, 161, 92, 0.3);
-        }
-        .touch-btn.active {
-            background: rgba(233, 161, 92, 0.4);
-            border-color: #e8a15c;
-            color: #e8a15c;
-            box-shadow: 0 0 12px rgba(233, 161, 92, 0.6);
-        }
+        #game-container { width: 100%; height: 100%; position: relative; overflow: hidden; }
+        /* Ebitengine creates its own canvas and styles it width:100% height:100% */
+        canvas#game { display: none; }
+        #loading { position: fixed; top: 50%; left: 50%; transform: translate(-50%,-50%);
+            color: #e8a15c; font-size: 20px; text-align: center; z-index: 999;
+            background: rgba(20,18,28,0.9); padding: 30px 50px; border-radius: 12px; border: 2px solid #4e5eb4; }
+        #tap-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; z-index: 50;
+            display: flex; flex-direction: column; justify-content: center; align-items: center;
+            background: rgba(0,0,0,0.85); cursor: pointer;
+            /* Allow touches to pass through to Ebitengine's canvas below */
+            pointer-events: none; }
+        #tap-overlay .text { color: #e8a15c; font-size: 28px; text-align: center;
+            text-shadow: 3px 3px 0 #16102a; }
+        #tap-overlay .sub { color: #a78bfa; font-size: 14px; margin-top: 10px;
+            text-shadow: 1px 1px 0 #16102a; }
+        #error { position: fixed; top: 50%; left: 50%; transform: translate(-50%,-50%);
+            color: #ff5da2; font-size: 18px; text-align: center; z-index: 1000;
+            background: rgba(20,18,28,0.95); padding: 20px 40px; border-radius: 8px; border: 2px solid #ff5da2; }
+        /* Touch controls — must receive touches, so pointer-events: auto */
+        .touch-btn { position: absolute; background: rgba(233,161,92,0.15);
+            border: 2px solid rgba(233,161,92,0.4); border-radius: 50%; z-index: 9;
+            pointer-events: auto; touch-action: manipulation; display: flex;
+            justify-content: center; align-items: center; font-size: 12px; color: rgba(233,161,92,0.3); }
+        .touch-btn.active { background: rgba(233,161,92,0.4); border-color: #e8a15c; color: #e8a15c;
+            box-shadow: 0 0 12px rgba(233,161,92,0.6); }
         #btn-left { bottom: 80px; left: 20px; width: 70px; height: 70px; }
         #btn-right { bottom: 80px; left: 100px; width: 70px; height: 70px; }
         #btn-down { bottom: 80px; left: 180px; width: 70px; height: 70px; }
@@ -125,22 +45,20 @@
 <body>
     <div id="loading">Cargando Ritmo del Barro...<br><small>18.9 MB WASM</small></div>
 
-    <!-- Tap to start overlay - captures first interaction -->
+    <!-- Tap overlay is pointer-events:none so real touches pass through to the canvas -->
     <div id="tap-overlay">
-        <div class="text">Toca para jugar</div>
+        <div class="text">TOCA PARA EMPEZAR</div>
+        <div class="sub">Usa los botones de abajo para mover/dash/saltar</div>
     </div>
 
     <div id="game-container">
-        <canvas id="game-canvas" tabindex="0"></canvas>
+        <!-- Placeholder canvas with id="game" — Ebitengine will create its own canvas -->
+        <canvas id="game" width="800" height="480"></canvas>
         <div id="btn-left" class="touch-btn"></div>
         <div id="btn-right" class="touch-btn"></div>
         <div id="btn-down" class="touch-btn"></div>
         <div id="btn-jump" class="touch-btn"></div>
         <div id="btn-dash" class="touch-btn"></div>
-    </div>
-    <div id="hud">
-        <span>RITMO DEL BARRO</span>
-        <span id="status">Cargando...</span>
     </div>
     <div id="error" style="display:none;"></div>
 
@@ -149,207 +67,186 @@
         (function() {
             'use strict';
 
-            const canvas = document.getElementById('game-canvas');
-            const loading = document.getElementById('loading');
-            const statusEl = document.getElementById('status');
-            const tapOverlay = document.getElementById('tap-overlay');
+            var loading = document.getElementById('loading');
+            var tapOverlay = document.getElementById('tap-overlay');
+            var errorEl = document.getElementById('error');
+            var ourCanvas = document.getElementById('game');
 
-            canvas.width = 2400;
-            canvas.height = 1440;
-
-            // KEY CODE MAPPING — Go's wasm_exec.js uses e.keyCode (deprecated, not settable via constructor)
-            // Must set both code AND keyCode/which for compatibility
-            const KEY_CODES = {
-                'ArrowLeft':  { code: 'ArrowLeft',  key: 'ArrowLeft',  keyCode: 37 },
-                'ArrowRight': { code: 'ArrowRight', key: 'ArrowRight', keyCode: 39 },
-                'ArrowUp':    { code: 'ArrowUp',    key: 'ArrowUp',    keyCode: 38 },
-                'ArrowDown':  { code: 'ArrowDown',  key: 'ArrowDown',  keyCode: 40 },
-                'a':          { code: 'KeyA',       key: 'a',          keyCode: 65 },
-                'd':          { code: 'KeyD',       key: 'd',          keyCode: 68 },
-                'w':          { code: 'KeyW',       key: 'w',          keyCode: 87 },
-                's':          { code: 'KeyS',       key: 's',          keyCode: 83 },
-                ' ':          { code: 'Space',      key: ' ',          keyCode: 32 },
-                'Enter':      { code: 'Enter',      key: 'Enter',      keyCode: 13 },
-                'Shift':      { code: 'ShiftLeft',  key: 'Shift',      keyCode: 16 },
+            var KEY_CODES = {
+                'ArrowLeft':  { key: 'ArrowLeft',  code: 'ArrowLeft',  keyCode: 37 },
+                'ArrowRight': { key: 'ArrowRight', code: 'ArrowRight', keyCode: 39 },
+                'ArrowUp':    { key: 'ArrowUp',    code: 'ArrowUp',    keyCode: 38 },
+                'ArrowDown':  { key: 'ArrowDown',  code: 'ArrowDown',  keyCode: 40 },
+                'a':          { key: 'a',          code: 'KeyA',       keyCode: 65 },
+                'd':          { key: 'd',          code: 'KeyD',       keyCode: 68 },
+                'w':          { key: 'w',          code: 'KeyW',       keyCode: 87 },
+                's':          { key: 's',          code: 'KeyS',       keyCode: 83 },
+                ' ':          { key: ' ',          code: 'Space',      keyCode: 32 },
+                'Shift':      { key: 'Shift',      code: 'ShiftLeft',  keyCode: 16 },
             };
 
-            let keysHeld = {}; // Track which keys are currently held
+            var keysHeld = {};
+            var ebitenCanvas = null;
 
-            function dispatchKeyEvent(keyName, isDown) {
-                var mapping = KEY_CODES[keyName];
-                if (!mapping) return;
-                var event = new KeyboardEvent(isDown ? 'keydown' : 'keyup', {
-                    key: mapping.key,
-                    code: mapping.code,
-                    bubbles: true,
-                    cancelable: true,
-                    composed: true
-                });
-                // Go wasm_exec.js reads e.keyCode — set via defineProperty
-                Object.defineProperty(event, 'keyCode',   { value: mapping.keyCode, configurable: true });
-                Object.defineProperty(event, 'which',     { value: mapping.keyCode, configurable: true });
-                Object.defineProperty(event, 'charCode',  { value: mapping.keyCode, configurable: true });
-
-                window.dispatchEvent(event);
-                canvas.dispatchEvent(event);
-                document.dispatchEvent(event);
+            // Ebitengine creates its own canvas via document.createElement('canvas')
+            // and appends it to document.body as a direct child.
+            // We find it by looking for body > canvas that isn't our placeholder.
+            function findEbitenCanvas() {
+                // Our placeholder is inside #game-container, not a direct child of body
+                var canvases = document.querySelectorAll('body > canvas');
+                for (var i = 0; i < canvases.length; i++) {
+                    // Ebitengine's canvas has no ID; our placeholder has id="game" (inside a div, not direct child)
+                    return canvases[i];
+                }
+                return null;
             }
 
-            function setupTouchControls() {
-                var buttons = {
-                    'btn-left':   ['ArrowLeft', 'a'],
-                    'btn-right':  ['ArrowRight', 'd'],
-                    'btn-jump':   ['w', 'ArrowUp'],
-                    'btn-dash':   ['Shift'],
-                    'btn-down':   ['s', 'ArrowDown'],
-                };
+            function dispatchKey(target, keyName, isDown) {
+                if (!target) return;
+                var mapping = KEY_CODES[keyName];
+                if (!mapping) return;
+                try {
+                    var event = new KeyboardEvent(isDown ? 'keydown' : 'keyup', {
+                        key: mapping.key, code: mapping.code,
+                        bubbles: true, cancelable: true, composed: true
+                    });
+                    Object.defineProperty(event, 'keyCode',  { value: mapping.keyCode, configurable: true });
+                    Object.defineProperty(event, 'which',    { value: mapping.keyCode, configurable: true });
+                    Object.defineProperty(event, 'charCode', { value: mapping.keyCode, configurable: true });
+                    target.dispatchEvent(event);
+                } catch(err) {
+                    console.warn('[ritmo] dispatch error:', err);
+                }
+            }
 
-                Object.keys(buttons).forEach(function(btnId) {
-                    var keys = buttons[btnId];
+            function dispatchMouseEvent(target, type) {
+                if (!target) return;
+                try {
+                    var event = new MouseEvent(type, {
+                        bubbles: true, cancelable: true, view: window,
+                        clientX: 400, clientY: 300, button: 0, buttons: 1
+                    });
+                    target.dispatchEvent(event);
+                } catch(err) {
+                    console.warn('[ritmo] mouse error:', err);
+                }
+            }
+
+            function dispatchKeyEvent(keyName, isDown) {
+                var targets = [];
+                if (ebitenCanvas) targets.push(ebitenCanvas);
+                targets.push(document, window);  // also try document/window as fallback
+                targets.forEach(function(t) { dispatchKey(t, keyName, isDown); });
+            }
+
+            function dispatchAllMouse(type) {
+                var targets = [];
+                if (ebitenCanvas) targets.push(ebitenCanvas);
+                targets.push(document, window);
+                targets.forEach(function(t) { dispatchMouseEvent(t, type); });
+            }
+
+            // Touch button mapping: btnId -> keys to press
+            var touchMap = {
+                'btn-left':   ['ArrowLeft', 'a'],
+                'btn-right':  ['ArrowRight', 'd'],
+                'btn-jump':   ['w', 'ArrowUp'],
+                'btn-dash':   ['Shift'],
+                'btn-down':   ['s', 'ArrowDown'],
+            };
+
+            function setupTouchControls() {
+                Object.keys(touchMap).forEach(function(btnId) {
+                    var keys = touchMap[btnId];
                     var el = document.getElementById(btnId);
                     if (!el) return;
 
                     el.addEventListener('touchstart', function(e) {
-                        e.preventDefault();
-                        e.stopPropagation();
+                        e.preventDefault(); e.stopPropagation();
                         el.classList.add('active');
                         keys.forEach(function(k) {
-                            if (!keysHeld[k]) {
-                                keysHeld[k] = true;
-                                dispatchKeyEvent(k, true);
-                            }
+                            if (!keysHeld[k]) { keysHeld[k] = true; dispatchKeyEvent(k, true); }
                         });
                     }, { passive: false });
 
                     el.addEventListener('touchend', function(e) {
                         e.preventDefault();
-                        e.stopPropagation();
                         el.classList.remove('active');
                         keys.forEach(function(k) {
-                            if (keysHeld[k]) {
-                                keysHeld[k] = false;
-                                dispatchKeyEvent(k, false);
-                            }
+                            if (keysHeld[k]) { keysHeld[k] = false; dispatchKeyEvent(k, false); }
                         });
                     });
-
                     el.addEventListener('touchcancel', function(e) {
                         el.classList.remove('active');
                         keys.forEach(function(k) {
-                            if (keysHeld[k]) {
-                                keysHeld[k] = false;
-                                dispatchKeyEvent(k, false);
-                            }
+                            if (keysHeld[k]) { keysHeld[k] = false; dispatchKeyEvent(k, false); }
                         });
                     });
-
                     // Mouse fallback for desktop testing
                     el.addEventListener('mousedown', function(e) {
-                        e.preventDefault();
                         el.classList.add('active');
                         keys.forEach(function(k) {
-                            if (!keysHeld[k]) {
-                                keysHeld[k] = true;
-                                dispatchKeyEvent(k, true);
-                            }
+                            if (!keysHeld[k]) { keysHeld[k] = true; dispatchKeyEvent(k, true); }
                         });
                     });
                     el.addEventListener('mouseup', function(e) {
                         el.classList.remove('active');
                         keys.forEach(function(k) {
-                            if (keysHeld[k]) {
-                                keysHeld[k] = false;
-                                dispatchKeyEvent(k, false);
-                            }
+                            if (keysHeld[k]) { keysHeld[k] = false; dispatchKeyEvent(k, false); }
                         });
                     });
                     el.addEventListener('mouseleave', function(e) {
                         el.classList.remove('active');
                         keys.forEach(function(k) {
-                            if (keysHeld[k]) {
-                                keysHeld[k] = false;
-                                dispatchKeyEvent(k, false);
-                            }
+                            if (keysHeld[k]) { keysHeld[k] = false; dispatchKeyEvent(k, false); }
                         });
                     });
                 });
             }
 
-            // Handle the "tap to start" overlay
-            var startDone = false;
-            function removeTapOverlay() {
-                if (startDone) return;
-                startDone = true;
-
-                // Dispatch Space keydown on window, document, AND canvas
-                // Go's wasm_exec.js listens on canvas for keyboard events
-                dispatchKeyEvent(' ', true);
-
-                // Also dispatch a mousedown as fallback
-                var mouseEvent = new MouseEvent('mousedown', {
-                    bubbles: true,
-                    cancelable: true,
-                    view: window,
-                    clientX: 400,
-                    clientY: 300,
-                    button: 0,
-                    buttons: 1
-                });
-                canvas.dispatchEvent(mouseEvent);
-                document.dispatchEvent(mouseEvent);
-
-                // Dispatch keydown via direct window event as another fallback
-                var keyboardEvent = new KeyboardEvent('keydown', {
-                    key: ' ',
-                    code: 'Space',
-                    bubbles: true,
-                    cancelable: true,
-                    composed: true
-                });
-                Object.defineProperty(keyboardEvent, 'keyCode', { value: 32, configurable: true });
-                Object.defineProperty(keyboardEvent, 'which', { value: 32, configurable: true });
-                window.dispatchEvent(keyboardEvent);
-
-                setTimeout(function() {
-                    dispatchKeyEvent(' ', false);
-                }, 100);
-
-                tapOverlay.style.display = 'none';
-                statusEl.textContent = '¡Jugando!';
-                canvas.focus();
-            }
-
-            tapOverlay.addEventListener('touchstart', removeTapOverlay, { once: true, passive: false });
-            tapOverlay.addEventListener('mousedown', removeTapOverlay, { once: true });
+            // Poll for Ebitengine canvas (runs during go.run() yields)
+            var pollCount = 0;
+            var canvasPoll = setInterval(function() {
+                ebitenCanvas = findEbitenCanvas();
+                if (ebitenCanvas) {
+                    clearInterval(canvasPoll);
+                    // Hide the placeholder canvas
+                    if (ourCanvas) ourCanvas.style.display = 'none';
+                    // Hide the tap overlay — real touches will pass through to Ebitengine canvas
+                    tapOverlay.style.display = 'none';
+                    setupTouchControls();
+                }
+                pollCount++;
+                if (pollCount > 100) { // 10 seconds timeout
+                    clearInterval(canvasPoll);
+                    // Fallback: setup touch controls anyway
+                    setupTouchControls();
+                }
+            }, 100);
 
             // Initialize game
             (async function() {
                 try {
-                    const go = new Go();
+                    var go = new Go();
                     go.argv = {};
 
-                    const resp = await fetch('ritmo.wasm');
-                    const bytes = await resp.arrayBuffer();
-                    const result = await WebAssembly.instantiate(bytes, go.importObject);
+                    var resp = await fetch('ritmo.wasm');
+                    var bytes = await resp.arrayBuffer();
+                    var result = await WebAssembly.instantiate(bytes, go.importObject);
 
                     loading.style.display = 'none';
-                    statusEl.textContent = '¡Listo! Toca para jugar';
-                    tapOverlay.style.display = 'flex';
-
-                    setupTouchControls();
 
                     go.run(result.instance);
                 } catch (err) {
                     loading.style.display = 'none';
                     tapOverlay.style.display = 'none';
-                    statusEl.textContent = 'Error!';
-                    document.getElementById('error').textContent = 'Error: ' + err;
-                    document.getElementById('error').style.display = 'block';
-                    console.error(err);
+                    clearInterval(canvasPoll);
+                    console.error('[ritmo]', err);
+                    errorEl.textContent = 'Error: ' + err;
+                    errorEl.style.display = 'block';
                 }
             })();
         })();
     </script>
 </body>
 </html>
-<!-- cache-bust: 1793326348 -->
