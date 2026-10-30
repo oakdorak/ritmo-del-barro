@@ -1,21 +1,155 @@
 <!DOCTYPE html>
-<html>
+<html lang="es">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-  <title>Ritmo del Barro</title>
-  <style>
-    html,body{margin:0;padding:0;background:#0d0b16;height:100%;overflow:hidden}
-    canvas{display:block;width:100vw;height:100vh;background:#0d0b16;image-rendering:pixelated;}
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Ritmo del Barro</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        html, body {
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background: #0c0814;
+            touch-action: none;
+            font-family: 'Courier New', monospace;
+        }
+        #game-container {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            touch-action: none;
+        }
+        #game-canvas {
+            image-rendering: pixelated;
+            image-rendering: crisp-edges;
+            width: 100vw;
+            height: 100vh;
+            max-width: 100%;
+            max-height: 100%;
+            touch-action: none;
+        }
+        #hud {
+            position: fixed;
+            top: 10px;
+            left: 10px;
+            color: #e8a15c;
+            font-size: 14px;
+            text-shadow: 2px 2px 0 #16102a;
+            z-index: 10;
+            pointer-events: none;
+        }
+        #hud span { display: block; }
+        #loading {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: #e8a15c;
+            font-size: 20px;
+            text-align: center;
+            z-index: 100;
+        }
+        #error {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: #ff5da2;
+            font-size: 18px;
+            text-align: center;
+            z-index: 100;
+            background: rgba(20, 18, 28, 0.9);
+            padding: 20px 40px;
+            border-radius: 8px;
+            border: 2px solid #ff5da2;
+        }
+        .touch-btn {
+            position: absolute;
+            border: 2px solid rgba(233,161,92,0.3);
+            border-radius: 8px;
+            z-index: 9;
+            pointer-events: auto;
+        }
+    </style>
 </head>
 <body>
-  <canvas id="canvas"></canvas>
-  <script src="wasm_exec.js"></script>
-  <script>
-    const go = new Go();
-    WebAssembly.instantiateStreaming(fetch('ritmo.wasm'), go.importObject)
-      .then((result) => { go.run(result.instance); });
-  </script>
+    <div id="loading">Cargando Ritmo del Barro...</div>
+    <div id="game-container">
+        <canvas id="game-canvas"></canvas>
+    </div>
+    <div id="hud">
+        <span>RITMO DEL BARRO</span>
+        <span id="status">Cargando...</span>
+    </div>
+
+    <script src="wasm_exec.js"></script>
+    <script>
+        (async function() {
+            const canvas = document.getElementById('game-canvas');
+            const loading = document.getElementById('loading');
+            const statusEl = document.getElementById('status');
+
+            canvas.width = 2400;  // 800 * 3 (SCALE)
+            canvas.height = 1440; // 480 * 3
+
+            function setupTouchControls() {
+                const container = document.getElementById('game-container');
+                const buttons = {
+                    left:   { x: 0,   y: 0,  w: 100, h: 100, keys: ['ArrowLeft', 'a'] },
+                    right:  { x: 110, y: 0,  w: 100, h: 100, keys: ['ArrowRight', 'd'] },
+                    jump:   { x: 230, y: 0,  w: 100, h: 100, keys: ['w', ' ', 'W', 'Space'] },
+                    dash:   { x: 350, y: 0,  w: 100, h: 100, keys: ['Shift'] },
+                    down:   { x: 120, y: 110, w: 100, h: 100, keys: ['s', 'ArrowDown'] },
+                };
+
+                Object.entries(buttons).forEach(([name, btn]) => {
+                    const el = document.createElement('div');
+                    el.className = 'touch-btn';
+                    el.style.left = btn.x + 'px';
+                    el.style.bottom = btn.y + 'px';
+                    el.style.width = btn.w + 'px';
+                    el.style.height = btn.h + 'px';
+
+                    el.addEventListener('touchstart', (e) => {
+                        e.preventDefault();
+                        btn.keys.forEach(k => simulateKey(k, true));
+                    }, { passive: false });
+
+                    el.addEventListener('touchend', () => {
+                        btn.keys.forEach(k => simulateKey(k, false));
+                    });
+                    el.addEventListener('touchcancel', () => {
+                        btn.keys.forEach(k => simulateKey(k, false));
+                    });
+
+                    container.appendChild(el);
+                });
+            }
+
+            function simulateKey(key, isDown) {
+                const event = new KeyboardEvent(isDown ? 'keydown' : 'keyup', {
+                    key: key, code: key, bubbles: true
+                });
+                document.dispatchEvent(event);
+            }
+
+            const go = new Go();
+            const resp = await fetch('ritmo.wasm');
+            const bytes = await resp.arrayBuffer();
+            const result = await WebAssembly.instantiate(bytes, go.importObject);
+
+            loading.style.display = 'none';
+            statusEl.textContent = 'Jugando...';
+            setupTouchControls();
+            go.run(result.instance);
+        })().catch(function(err) {
+            document.getElementById('error').textContent = 'Error: ' + err;
+            document.getElementById('error').style.display = 'block';
+            document.getElementById('loading').style.display = 'none';
+        });
+    </script>
 </body>
 </html>

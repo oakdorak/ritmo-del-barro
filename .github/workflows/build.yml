@@ -1,0 +1,92 @@
+name: Build & Deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  build-wasm:
+    name: Build WebAssembly
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.24'
+
+      - name: Build WASM
+        run: |
+          mkdir -p build
+          GOOS=js GOARCH=wasm go build -trimpath -ldflags="-s -w" -o build/ritmo.wasm
+          cp "$(go env GOROOT)/lib/wasm/wasm_exec.js" build/
+          cp index.html build/
+          cp tileset.png build/ 2>/dev/null || true
+          cp sprites.png build/ 2>/dev/null || true
+
+      - name: Upload WASM artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ritmo-wasm
+          path: build/
+
+  build-native:
+    name: Build Native Binary
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.24'
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libgl1-mesa-dev libasound2-dev libx11-dev \
+            libxrandr-dev libxi-dev libxinerama-dev libxxf86vm-dev
+
+      - name: Build
+        run: CGO_ENABLED=1 go build -trimpath -o ritmo-del-barro
+
+      - name: Upload native binary
+        uses: actions/upload-artifact@v4
+        with:
+          name: ritmo-native
+          path: ritmo-del-barro
+
+  deploy:
+    name: Deploy to GitHub Pages
+    needs: build-wasm
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.24'
+
+      - name: Build WASM
+        run: |
+          mkdir -p build
+          GOOS=js GOARCH=wasm go build -trimpath -o build/ritmo.wasm
+          cp "$(go env GOROOT)/lib/wasm/wasm_exec.js" build/
+          cp index.html build/
+          cp tileset.png build/ 2>/dev/null || true
+          cp sprites.png build/ 2>/dev/null || true
+
+      - name: Deploy to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./build
+          force_orphan: true
+          enable_jekyll: false
