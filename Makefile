@@ -8,7 +8,6 @@ GO ?= go
 BINARY = ritmo-del-barro
 WASM = build/ritmo.wasm
 HTML = index.html
-JS = build/wasm_exec.js
 
 # Colors for output
 GREEN = \033[0;32m
@@ -32,8 +31,8 @@ wasm:
 	GOOS=js GOARCH=wasm $(GO) build -trimpath -ldflags="-s -w" -o $(WASM)
 	@echo "$(GREEN)✓ Built $(WASM)$(NC)"
 	cp $(HTML) build/
-	@# Copy wasm_exec.js from Go SDK
-	cp "$$(go env GOROOT)/lib/wasm/wasm_exec.js" build/
+	@# Copy wasm_exec.js from the same Go toolchain that built the wasm
+	cp "$$($(GO) env GOROOT)/lib/wasm/wasm_exec.js" build/
 	@echo "$(GREEN)✓ wasm_exec.js copied$(NC)"
 
 ## assets: Copy game assets to build directory
