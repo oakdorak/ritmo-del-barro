@@ -37,15 +37,17 @@ nix-shell -p go --run "go build -o ritmo-del-barro && ./ritmo-del-barro"
 ### WebAssembly (iPad / Browser)
 
 ```bash
-make wasm
+make wasm assets
 make serve
 ```
 
-Then open `http://localhost:8080/build/` in your browser.
+Then open `http://localhost:8080/` in your browser.
+
+`build/` is generated and gitignored — it is not committed. CI builds it from source and publishes it to GitHub Pages.
 
 ## GitHub Actions
 
-CI automatically builds both native and WASM binaries on every push to `main`. WASM deploys to GitHub Pages.
+CI builds both the native binary and the WASM bundle on every push to `main` and on pull requests. On `main`, the WASM bundle is published to GitHub Pages via `actions/deploy-pages` (Pages source must be **GitHub Actions**, not a branch).
 
 ## Assets
 
