@@ -53,7 +53,7 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y libgl1-mesa-dev libasound2-dev libx11-dev \
-            libxrandr-dev libxi-dev libxinerama-dev libxxf86vm-dev
+            libxrandr-dev libxcursor-dev libxi-dev libxinerama-dev libxxf86vm-dev
 
       - name: Build
         run: CGO_ENABLED=1 make native
