@@ -6,6 +6,9 @@ wasm_exec.js
 # Directorio de salida de `make wasm assets` (lo publica CI, no el repo)
 build/
 
+# Herramientas y worktrees locales del agente
+.agents/
+
 # Binario nativo
 ritmo-del-barro
 
