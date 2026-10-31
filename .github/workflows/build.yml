@@ -3,7 +3,18 @@ name: Build & Deploy
 on:
   push:
     branches: [main]
+  pull_request:
+    branches: [main]
   workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages-${{ github.ref }}
+  cancel-in-progress: false
 
 jobs:
   build-wasm:
@@ -16,21 +27,14 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version: '1.24'
+          go-version-file: go.mod
 
-      - name: Build WASM
-        run: |
-          mkdir -p build
-          GOOS=js GOARCH=wasm go build -trimpath -ldflags="-s -w" -o build/ritmo.wasm
-          cp "$(go env GOROOT)/lib/wasm/wasm_exec.js" build/
-          cp index.html build/
-          cp tileset.png build/ 2>/dev/null || true
-          cp sprites.png build/ 2>/dev/null || true
+      - name: Build WebAssembly bundle
+        run: make wasm assets
 
-      - name: Upload WASM artifact
-        uses: actions/upload-artifact@v4
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
         with:
-          name: ritmo-wasm
           path: build/
 
   build-native:
@@ -43,7 +47,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version: '1.24'
+          go-version-file: go.mod
 
       - name: Install dependencies
         run: |
@@ -52,7 +56,7 @@ jobs:
             libxrandr-dev libxi-dev libxinerama-dev libxxf86vm-dev
 
       - name: Build
-        run: CGO_ENABLED=1 go build -trimpath -o ritmo-del-barro
+        run: CGO_ENABLED=1 make native
 
       - name: Upload native binary
         uses: actions/upload-artifact@v4
@@ -63,30 +67,12 @@ jobs:
   deploy:
     name: Deploy to GitHub Pages
     needs: build-wasm
-    runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Set up Go
-        uses: actions/setup-go@v5
-        with:
-          go-version: '1.24'
-
-      - name: Build WASM
-        run: |
-          mkdir -p build
-          GOOS=js GOARCH=wasm go build -trimpath -o build/ritmo.wasm
-          cp "$(go env GOROOT)/lib/wasm/wasm_exec.js" build/
-          cp index.html build/
-          cp tileset.png build/ 2>/dev/null || true
-          cp sprites.png build/ 2>/dev/null || true
-
       - name: Deploy to GitHub Pages
-        uses: peaceiris/actions-gh-pages@v4
-        with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: ./build
-          force_orphan: true
-          enable_jekyll: false
+        id: deployment
+        uses: actions/deploy-pages@v4

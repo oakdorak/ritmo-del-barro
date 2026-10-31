@@ -3,6 +3,9 @@ ritmo.wasm
 main.wasm
 wasm_exec.js
 
+# Directorio de salida de `make wasm assets` (lo publica CI, no el repo)
+build/
+
 # Binario nativo
 ritmo-del-barro
 

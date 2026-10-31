@@ -7,7 +7,7 @@ GO ?= go
 # Output names
 BINARY = ritmo-del-barro
 WASM = build/ritmo.wasm
-HTML = build/index.html
+HTML = index.html
 JS = build/wasm_exec.js
 
 # Colors for output
@@ -29,7 +29,6 @@ native:
 wasm:
 	@echo "$(YELLOW)Building WebAssembly...$(NC)"
 	mkdir -p build
-	$(GO) generate -run _ // generate wasm_exec.js if needed
 	GOOS=js GOARCH=wasm $(GO) build -trimpath -ldflags="-s -w" -o $(WASM)
 	@echo "$(GREEN)✓ Built $(WASM)$(NC)"
 	cp $(HTML) build/
